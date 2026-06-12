@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem.LowLevel;
 
@@ -10,6 +11,11 @@ public abstract class PlayerMovementBase : MonoBehaviour
     [Header("Movement")]
     [SerializeField] protected float speed = 8f;
     [SerializeField] protected float jumpingPower = 16f;
+    [SerializeField] private GameObject _miloReflect;
+    [SerializeField] private GameObject _LinoReflect;
+    [SerializeField] public bool isReflect = false;
+    [SerializeField] public bool isLino = false;
+    private bool _reflectActive = false;
     [Tooltip("Time window (seconds) during which the player can still jump after walking off a ledge.")]
     [SerializeField] private float _coyoteTime = 0.15f;
 
@@ -56,6 +62,7 @@ public abstract class PlayerMovementBase : MonoBehaviour
     private void Awake()
     {
         EnterState(CatState.Idle);
+        _rb.gravityScale = isReflect ? -Mathf.Abs(_rb.gravityScale) : Mathf.Abs(_rb.gravityScale);
     }
 
     public void EnterState(CatState newState)
@@ -119,12 +126,14 @@ public abstract class PlayerMovementBase : MonoBehaviour
 
     void ShowAnim(GameObject desired)
     {
+        Debug.Log($"[{gameObject.name}] ShowAnim → {desired.name}");
         idleAnim.SetActive(false);
         runAnim.SetActive(false);
         jumpAnim.SetActive(false);
         fallAnim.SetActive(false);
         afraidAnim.SetActive(false);
         desired.SetActive(true);
+        Debug.Log($"[{gameObject.name}] ShowAnim → {desired.name} | idleAnim owner: {idleAnim.transform.root.name}");
     }
 
     protected virtual void Update()
@@ -135,6 +144,21 @@ public abstract class PlayerMovementBase : MonoBehaviour
         HandleFlip();
         HandleRunVFX();
         UpdateCurrentState();
+        
+        // Suivi du reflet
+        //if (_reflectActive & _miloReflect != false & isLino != true)
+        //{
+            //Vector3 pos = _miloReflect.transform.position;
+            //pos.x = transform.position.x;
+            //_miloReflect.transform.position = pos;
+        //}
+        
+        //if (_reflectActive & _LinoReflect != false & isLino == true)
+        //{
+            //Vector3 pos = _LinoReflect.transform.position;
+            //pos.x = transform.position.x;
+            //_LinoReflect.transform.position = pos;
+        //}
     }
 
     protected virtual void FixedUpdate()
@@ -156,6 +180,8 @@ public abstract class PlayerMovementBase : MonoBehaviour
         if (_platform != null)
             _rb.position += _platform.Delta;
     }
+    
+    
 
     FootstepSurface currentPlatform;
 
@@ -171,7 +197,18 @@ public abstract class PlayerMovementBase : MonoBehaviour
     {
         EnterState(CatState.Jumping);
         _coyoteTimer = 0f; // consume the window so the player can't jump again mid-air
-        _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, jumpingPower);
+        
+        // reflect pour la version mirroir dans l eau 
+        if (isReflect == true)
+        {
+            _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, -jumpingPower);
+        }
+        
+        if (isReflect == false)
+        {
+            _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, jumpingPower);  
+        }
+
         AudioManager.Instance?.Play("Jump");
         if (_jumpVFX != null) _jumpVFX.Play();
         ShowAnim(jumpAnim);
@@ -275,5 +312,16 @@ public abstract class PlayerMovementBase : MonoBehaviour
         Destroy(smoke.gameObject, smoke.main.duration + smoke.main.startLifetime.constantMax);
     }
 
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("MiloReflect") & _miloReflect != null)
+            
+            _miloReflect.SetActive(true);
+        
+        if (other.CompareTag("LinoReflect") & _LinoReflect != null)
+            _LinoReflect.SetActive(true);
+        
+        _reflectActive = true;
+    }
 
 }
